@@ -1,0 +1,1425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Goa Master Smart Layout</title>
+    <style>
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body { font-family: 'Segoe UI', sans-serif; background: #000; color: #fff; margin: 0; padding: 0; }
+
+        .main-wrapper { display: flex; flex-direction: row; height: 100vh; width: 100vw; overflow: hidden; }
+        .left-panel { flex: 1.6; display: flex; flex-direction: column; border-right: 2px solid #333; height: 100%; overflow-y: auto; overflow-x: hidden; }
+        .right-panel { flex: 1; height: 100%; overflow-y: auto; background: #050505; padding: 10px; }
+
+        .dashboard { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 10px; background: #111; position: sticky; top: 0; z-index: 200; }
+        .card { background: rgba(255,255,255,0.05); border: 1px solid #444; padding: 5px; border-radius: 4px; text-align: center; }
+        .lbl { font-size: 0.5rem; color: #aaa; display: block; }
+        .val { font-size: 0.8rem; font-weight: 800; color: #d4af37; }
+
+        .input-container { display: flex; flex-direction: column; align-items: center; gap: 20px; padding: 20px 0; overflow: visible; }
+        .wheel-box { position: relative; width: 95%; max-width: 560px; display: flex; justify-content: center; overflow: visible; padding: 10px 0; pointer-events: none; }
+        .wheel-svg { width: 100%; height: auto; display: block; overflow: visible; pointer-events: all; }
+
+        @keyframes ringPulse {
+            0%   { stroke-width: 5; opacity: 1;   stroke: #ffe566; }
+            50%  { stroke-width: 9; opacity: 0.7; stroke: #ffd700; }
+            100% { stroke-width: 5; opacity: 1;   stroke: #ffe566; }
+        }
+        @keyframes ringAppear {
+            0%   { r: 14px; opacity: 0; }
+            60%  { r: 22px; opacity: 1; }
+            100% { r: 18px; opacity: 1; }
+        }
+        .wheel-ring-selected {
+            animation: ringPulse 1s ease-in-out infinite;
+            stroke: #ffe566 !important;
+            stroke-width: 6 !important;
+            opacity: 1 !important;
+            filter: drop-shadow(0 0 6px #ffd700);
+        }
+        .wheel-ring-history {
+            stroke: #00e5ff !important;
+            stroke-width: 4 !important;
+            opacity: 0.85 !important;
+            filter: drop-shadow(0 0 4px #00e5ff);
+        }
+        .board-cell-selected {
+            outline: 2.5px solid #ffd700 !important;
+            box-shadow: 0 0 8px #ffd70088;
+        }
+
+        .board-wrap { width: 95%; background: #003d21; padding: 10px; border-radius: 8px; border: 2px solid #005a32; display: flex; gap: 4px; z-index: 10; }
+        .zero { width: 50px; display: flex; align-items: center; justify-content: center; background: #00ff88 !important; color: #000; cursor: pointer; border-radius: 4px; font-weight: bold; }
+        .grid { display: grid; grid-template-rows: repeat(3, 1fr); grid-auto-flow: column; gap: 4px; flex-grow: 1; }
+        .cell { height: 45px; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; font-weight: 900; border-radius: 4px; cursor: pointer; border: 1px solid rgba(255,255,255,0.1); }
+
+        @media (max-width: 900px) {
+            .main-wrapper { flex-direction: column; overflow-y: auto; height: auto; }
+            .left-panel { height: auto; border-right: none; }
+            .right-panel { height: auto; border-top: 2px solid #d4af37; }
+            .dashboard { grid-template-columns: repeat(4, 1fr); }
+            .cell { height: 38px; font-size: 0.9rem; }
+        }
+
+        .bg-red { background-color: #e63946 !important; }
+        .bg-black { background-color: #1a1a1a !important; }
+        .bg-green { background-color: #00ff88 !important; color: #000 !important; }
+
+        .scrollable-logs-zone { padding: 15px; background: #080808; }
+        .list-box { background: #111; border-radius: 8px; padding: 10px; border: 1px solid #333; margin-bottom: 12px; }
+        .box-header { color: #d4af37; font-size: 0.75rem; font-weight: bold; margin-bottom: 10px; border-bottom: 1px solid #333; padding-bottom: 5px; }
+        .flex-wrap { display: flex; flex-wrap: wrap; gap: 6px; }
+        .mini-ball { width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.85rem; font-weight: bold; }
+        .tag { width: 44px; height: 32px; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: bold; }
+        .ntag { width: 40px; height: 32px; border-radius: 4px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 0.72rem; font-weight: bold; line-height: 1.1; }
+
+        /* Bottom controls bar */
+        .bottom-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 12px 15px; background: #0a0a0a; border-top: 1px solid #2a2a2a; border-bottom: 1px solid #2a2a2a; }
+        .bottom-sync-row { display: flex; gap: 8px; padding: 0 15px 12px; background: #0a0a0a; border-bottom: 2px solid #d4af37; }
+        .btn { padding: 15px; border: none; border-radius: 6px; color: #fff; font-weight: bold; cursor: pointer; }
+
+        .table-row { display: grid; grid-template-columns: 44px 36px 1fr; border-bottom: 1px solid #222; }
+        .row-n { background: #111; padding: 8px 4px; text-align: center; font-weight: bold; }
+        .row-c { background: #1a1a1a; padding: 8px 4px; text-align: center; font-weight: 800; color: #00e5ff; font-size: 0.8rem; border-left: 1px solid #333; border-right: 1px solid #333; }
+        .row-h { padding: 8px; color: #d4af37; font-family: monospace; font-size: 0.75rem; }
+
+        .tab-btn { flex:1; padding:8px 4px; border:1px solid #444; background:#111; color:#aaa; font-size:0.7rem; font-weight:700; border-radius:4px; cursor:pointer; }
+        .active-tab { background:#d4af37 !important; color:#000 !important; border-color:#d4af37 !important; }
+        .sess-card { background:#1a1a1a; border:1px solid #333; border-radius:6px; padding:10px; margin-bottom:8px; cursor:pointer; }
+        .sess-card:hover { border-color:#d4af37; }
+        .sess-title { font-size:0.8rem; font-weight:800; color:#d4af37; margin-bottom:4px; }
+        .sess-meta { font-size:0.7rem; color:#888; }
+        .stat-grid { display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-bottom:10px; }
+        .stat-box { background:#1a1a1a; border-radius:4px; padding:8px; text-align:center; border:1px solid #333; }
+        .stat-lbl { font-size:0.6rem; color:#888; display:block; margin-bottom:2px; }
+        .stat-val { font-size:1rem; font-weight:900; color:#d4af37; }
+
+        .an-bar-wrap { margin-bottom:10px; }
+        .an-bar-label { font-size:0.7rem; color:#aaa; margin-bottom:3px; display:flex; justify-content:space-between; }
+        .an-bar-track { background:#222; border-radius:3px; height:8px; width:100%; }
+        .an-bar-fill { height:8px; border-radius:3px; }
+        .hot-cold-grid { display:grid; grid-template-columns:repeat(6,1fr); gap:4px; }
+        .hc-ball { width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:0.7rem; font-weight:900; margin:auto; }
+
+        .modal-overlay { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:9999; display:flex; align-items:center; justify-content:center; }
+        .modal-box { background:#1a1a1a; border:2px solid #d4af37; border-radius:10px; padding:24px; max-width:340px; width:90%; text-align:center; }
+        .modal-title { font-size:1.1rem; font-weight:900; color:#d4af37; margin-bottom:10px; }
+        .modal-sub { font-size:0.8rem; color:#aaa; margin-bottom:18px; line-height:1.5; }
+        .modal-btns { display:flex; flex-direction:column; gap:10px; }
+
+        .loading-overlay { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:8888; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+        .loading-spinner { width:50px; height:50px; border:4px solid #333; border-top:4px solid #d4af37; border-radius:50%; animation:spin 0.8s linear infinite; margin-bottom:16px; }
+        @keyframes spin { to { transform:rotate(360deg); } }
+
+        /* Zone badge styles */
+        .zone-badge-z1 { background: linear-gradient(135deg, #1565c0, #0d47a1); border: 1px solid #42a5f5; }
+        .zone-badge-z2 { background: linear-gradient(135deg, #6a1b9a, #4a148c); border: 1px solid #ba68c8; }
+
+        @media print {
+            body * { visibility: hidden; }
+            #print-area, #print-area * { visibility: visible; }
+            #print-area { position: absolute; top: 0; left: 0; width: 100%; background: #fff; color: #000; padding: 20px; }
+        }
+    </style>
+</head>
+<body>
+<div id="print-area" style="display:none"></div>
+
+<!-- Modal for New Session -->
+<div id="new-session-modal" class="modal-overlay" style="display:none;">
+    <div class="modal-box">
+        <div class="modal-title">🎰 Start New Session?</div>
+        <div class="modal-sub" id="modal-sub-text">You have <strong id="modal-spin-count">0</strong> spins recorded.<br>Do you want to save this session to the cloud before starting fresh?</div>
+        <div class="modal-btns">
+            <button class="btn" style="background:#007bff;" onclick="newSessionSaveFirst()">💾 Save to Cloud &amp; New Session</button>
+            <button class="btn" style="background:#444;" onclick="newSessionNoSave()">🗑 Discard &amp; New Session</button>
+            <button class="btn" style="background:#222;border:1px solid #555;color:#aaa;" onclick="closeNewSessionModal()">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<!-- Loading overlay -->
+<div id="loading-overlay" class="loading-overlay" style="display:none;">
+    <div class="loading-spinner"></div>
+    <div style="color:#d4af37;font-weight:700;" id="loading-text">Loading last session...</div>
+</div>
+
+<div class="main-wrapper">
+    <div class="left-panel">
+        <!-- ── Dashboard ── -->
+        <div class="dashboard">
+            <div class="card"><span class="lbl">Total Spins</span><div class="val" id="spin_v">0</div></div>
+            <div class="card"><span class="lbl">ZL / ZR</span><div class="val" id="z12_v" style="color:#42a5f5">0/0</div></div>
+            <div class="card"><span class="lbl">UP / DN</span><div class="val" id="updown_v" style="color:#26a69a">0/0</div></div>
+            <div class="card"><span class="lbl">S1/S2/S3/S4</span><div class="val" id="sec_v" style="font-size:0.65rem;color:#ff9800">0/0/0/0</div></div>
+            <div class="card"><span class="lbl">Voisins/Orph/Tiers</span><div class="val" id="vot_v">0/0/0</div></div>
+            <div class="card"><span class="lbl">Row1/Row2/Row3</span><div class="val" id="row_v">0/0/0</div></div>
+            <div class="card"><span class="lbl">Dozen1/Dozen2/Dozen3</span><div class="val" id="doz_v">0/0/0</div></div>
+            <div class="card"><span class="lbl">Red/Black</span><div class="val" id="rb_v">0/0</div></div>
+            <div class="card"><span class="lbl">Odd/Even</span><div class="val" id="eo_v">0/0</div></div>
+            <div class="card"><span class="lbl">High/Low</span><div class="val" id="hl_v">0/0</div></div>
+        </div>
+
+        <!-- ── Wheel + Board ── -->
+        <div class="input-container">
+            <div class="wheel-box">
+                <svg id="wheel-svg" class="wheel-svg" viewBox="0 0 900 400" overflow="visible" xmlns="http://www.w3.org/2000/svg"></svg>
+            </div>
+
+            <div class="board-wrap">
+                <div class="zero bg-green" onclick="selectNum(0)">0</div>
+                <div class="grid" id="board-grid"></div>
+            </div>
+        </div>
+
+        <!-- ── Scrollable Pattern Logs ── -->
+        <div class="scrollable-logs-zone">
+            <div class="list-box"><div class="box-header">Hit History</div><div id="hist_log" class="flex-wrap"></div></div>
+            <div class="list-box"><div class="box-header">Sorted</div><div id="sorted_list" class="flex-wrap"></div></div>
+
+            <!-- ZONES first -->
+            <div class="list-box">
+                <div class="box-header">Zone Pattern (ZL / ZR)</div>
+                <div id="zone_log" class="flex-wrap"></div>
+            </div>
+
+            <!-- UP / DOWN -->
+            <div class="list-box">
+                <div class="box-header">Up / Down Pattern</div>
+                <div id="updown_log" class="flex-wrap"></div>
+            </div>
+
+
+            <!-- VOT -->
+            <div class="list-box"><div class="box-header">Voisins / Orphelins / Tiers Section Log</div><div id="vot_log" class="flex-wrap"></div></div>
+
+            <!-- Neighbour -->
+            <div class="list-box"><div class="box-header">Neighbour (1N / 2N / 3N / ∅)</div><div id="neighbour_log" class="flex-wrap"></div></div>
+
+            <!-- Row -->
+            <div class="list-box"><div class="box-header">Row Pattern</div><div id="row_log" class="flex-wrap"></div></div>
+
+            <!-- Dozen -->
+            <div class="list-box"><div class="box-header">Dozen Pattern</div><div id="doz_log" class="flex-wrap"></div></div>
+
+            <!-- Red/Black -->
+            <div class="list-box"><div class="box-header">Red / Black Pattern</div><div id="rb_log" class="flex-wrap"></div></div>
+
+            <!-- Odd/Even -->
+            <div class="list-box"><div class="box-header">Odd / Even Pattern</div><div id="oe_log" class="flex-wrap"></div></div>
+
+            <!-- High/Low -->
+            <div class="list-box"><div class="box-header">High / Low Pattern</div><div id="hl_log" class="flex-wrap"></div></div>
+
+            <!-- Sectors -->
+            <div class="list-box"><div class="box-header">Sector Pattern (S1 / S2 / S3 / S4)</div><div id="sec_log" class="flex-wrap"></div></div>
+        </div>
+
+        <!-- ── BUTTONS at bottom, above occurrence table ── -->
+        <div class="bottom-controls">
+            <button class="btn" style="background:#444" onclick="undo()">↩ UNDO</button>
+            <button class="btn" style="background:#1a6b2a;" onclick="openNewSessionModal()">✚ NEW SESSION</button>
+        </div>
+        <div class="bottom-sync-row">
+            <button onclick="uploadData()" class="btn" style="background:#007bff; flex:1; padding:12px;">
+                ☁ SYNC TO BIG WIN CLOUD
+            </button>
+            <button onclick="printSession()" class="btn" style="background:#d4af37; color:#000; flex:1; padding:12px;">
+                🖨 PRINT SESSION
+            </button>
+        </div>
+    </div>
+
+    <!-- ── Right Panel ── -->
+    <div class="right-panel">
+        <div style="display:flex;gap:4px;margin-bottom:10px;position:sticky;top:0;z-index:100;background:#050505;padding-bottom:8px;">
+            <button onclick="switchTab('occ')" id="tab-occ" class="tab-btn active-tab">Occurrence</button>
+            <button onclick="switchTab('sessions')" id="tab-sessions" class="tab-btn">Sessions</button>
+            <button onclick="switchTab('analytics')" id="tab-analytics" class="tab-btn">Analytics</button>
+        </div>
+
+        <div id="panel-occ">
+            <div class="box-header" style="font-size:1rem;">Occurrence Table</div>
+            <div id="occ_table"></div>
+        </div>
+
+        <div id="panel-sessions" style="display:none;">
+            <div class="box-header" style="font-size:1rem;">Past Sessions</div>
+            <div class="list-box" style="margin-bottom:10px;">
+                <div class="box-header">Filters</div>
+                <div style="display:flex;flex-direction:column;gap:8px;">
+                    <select id="sess-casino" onchange="cascadeDropdowns('sess','casino')" style="background:#1a1a1a;border:1px solid #444;border-radius:4px;color:#d4af37;font-size:0.75rem;padding:6px 8px;outline:none;width:100%;"><option value="">All Casinos</option></select>
+                    <select id="sess-dealer" onchange="cascadeDropdowns('sess','dealer')" style="background:#1a1a1a;border:1px solid #444;border-radius:4px;color:#d4af37;font-size:0.75rem;padding:6px 8px;outline:none;width:100%;"><option value="">All Dealers</option></select>
+                    <select id="sess-table" onchange="cascadeDropdowns('sess','table')" style="background:#1a1a1a;border:1px solid #444;border-radius:4px;color:#d4af37;font-size:0.75rem;padding:6px 8px;outline:none;width:100%;"><option value="">All Tables</option></select>
+                    <div style="display:flex;gap:6px;">
+                        <input id="sess-date-from" type="date" style="flex:1;background:#1a1a1a;border:1px solid #444;border-radius:4px;color:#d4af37;font-size:0.75rem;padding:6px 8px;outline:none;" />
+                        <input id="sess-date-to" type="date" style="flex:1;background:#1a1a1a;border:1px solid #444;border-radius:4px;color:#d4af37;font-size:0.75rem;padding:6px 8px;outline:none;" />
+                    </div>
+                    <button onclick="loadSessions()" class="btn" style="background:#007bff;padding:10px;">🔍 SEARCH SESSIONS</button>
+                </div>
+            </div>
+            <div id="sessions-list"><div style="color:#666;font-size:0.8rem;text-align:center;padding:20px;">Set filters and click Search</div></div>
+            <div id="session-detail" style="display:none;margin-top:10px;">
+                <button onclick="closeDetail()" class="btn" style="background:#444;padding:8px 12px;font-size:0.75rem;margin-bottom:10px;">← Back</button>
+                <div id="session-detail-content"></div>
+            </div>
+        </div>
+
+        <div id="panel-analytics" style="display:none;">
+            <div class="box-header" style="font-size:1rem;">Analytics</div>
+            <div class="list-box" style="margin-bottom:10px;">
+                <div class="box-header">Filters</div>
+                <div style="display:flex;flex-direction:column;gap:8px;">
+                    <select id="an-casino" onchange="cascadeDropdowns('an','casino')" style="background:#1a1a1a;border:1px solid #444;border-radius:4px;color:#d4af37;font-size:0.75rem;padding:6px 8px;outline:none;width:100%;"><option value="">All Casinos</option></select>
+                    <select id="an-dealer" onchange="cascadeDropdowns('an','dealer')" style="background:#1a1a1a;border:1px solid #444;border-radius:4px;color:#d4af37;font-size:0.75rem;padding:6px 8px;outline:none;width:100%;"><option value="">All Dealers</option></select>
+                    <select id="an-table" onchange="cascadeDropdowns('an','table')" style="background:#1a1a1a;border:1px solid #444;border-radius:4px;color:#d4af37;font-size:0.75rem;padding:6px 8px;outline:none;width:100%;"><option value="">All Tables</option></select>
+                    <div style="display:flex;gap:6px;">
+                        <input id="an-date-from" type="date" style="flex:1;background:#1a1a1a;border:1px solid #444;border-radius:4px;color:#d4af37;font-size:0.75rem;padding:6px 8px;outline:none;" />
+                        <input id="an-date-to" type="date" style="flex:1;background:#1a1a1a;border:1px solid #444;border-radius:4px;color:#d4af37;font-size:0.75rem;padding:6px 8px;outline:none;" />
+                    </div>
+                    <button onclick="loadAnalytics()" class="btn" style="background:#d4af37;color:#000;padding:10px;">🔍 RUN ANALYTICS</button>
+                </div>
+            </div>
+            <div id="analytics-content"><div style="color:#666;font-size:0.8rem;text-align:center;padding:20px;">Set filters and click Run Analytics</div></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const wheelOrder = [0,32,15,19,4,21,2,25,17,34,6,27,13,36,11,30,8,23,10,5,24,16,33,1,20,14,31,9,22,18,29,7,28,12,35,3,26];
+
+    let selectedNum = null;
+    const reds = [1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36];
+    const v_n = [22,18,29,7,28,12,35,3,26,0,32,15,19,4,21,2,25];
+    const o_n = [1,20,14,31,9,17,34,6];
+    const t_n = [27,13,36,11,30,8,23,10,5,24,16,33];
+
+    // ── Zone 1: left half of wheel ──
+    const zone1 = [5, 10, 23, 8, 30, 11, 36, 13, 27, 6, 34, 1, 20, 14, 31, 16, 24, 33];
+    // ── Zone 2: right half of wheel ──
+    const zone2 = [9, 22, 18, 29, 7, 28, 12, 35, 3, 26, 0, 32, 15, 19, 4, 21, 2, 25, 17];
+
+    function getZone(n) {
+        if (zone1.includes(n)) return 'ZL';
+        if (zone2.includes(n)) return 'ZR';
+        return '?';
+    }
+
+	// ── Up: top arc of wheel (image 1) – wheel indices 18-36 ──
+    const upNums   = [1,3,5,7,9,10,12,14,16,18,20,22,23,24,28,29,31,33,35];
+    // ── Down: bottom arc of wheel (image 2) – wheel indices 0-17 ──
+    const downNums = [0,2,4,6,8,11,13,15,17,19,21,25,26,27,30,32,34,36];
+
+    function getUpDown(n) {
+        if (upNums.includes(n))   return 'UP';
+        if (downNums.includes(n)) return 'DN';
+        return '?';
+    }
+
+    // User-defined sectors
+    const sectorMap = {};
+    [0,3,4,12,15,19,21,26,32,35].forEach(n => sectorMap[n] = 'S1');
+    [7,9,14,18,20,22,28,29,31].forEach(n => sectorMap[n] = 'S2');
+    [1,5,8,10,16,23,24,30,33].forEach(n => sectorMap[n] = 'S3');
+    [2,6,11,13,17,25,27,34,36].forEach(n => sectorMap[n] = 'S4');
+    function getSector(n) { return sectorMap[n] || '?'; }
+
+    function getVOT(n) {
+        if (v_n.includes(n)) return 'V';
+        if (o_n.includes(n)) return 'O';
+        if (t_n.includes(n)) return 'T';
+        return '';
+    }
+    function wheelIdx(n) { return wheelOrder.indexOf(n); }
+    function neighbourDist(prev, curr) {
+        if (prev === null || prev === undefined) return null;
+        const pi = wheelIdx(prev), ci = wheelIdx(curr);
+        if (pi < 0 || ci < 0) return null;
+        const len = wheelOrder.length;
+        const diff = Math.min(Math.abs(ci - pi), len - Math.abs(ci - pi));
+        if (diff === 1) return '1N';
+        if (diff === 2) return '2N';
+        if (diff === 3) return '3N';
+        return null;
+    }
+
+    // App state
+    let history = JSON.parse(localStorage.getItem('goa_history')) || [];
+    let currentSessionId = localStorage.getItem('goa_current_session_id') || null;
+    window._appHistory = history;
+
+    let _casino = '', _dealer = '', _table = '', _date = '', _spinType = '';
+
+    function getSessionFields() {
+        return {
+            casino:   document.getElementById('casino_name')?.value  || _casino || '',
+            dealer:   document.getElementById('dealer_name')?.value  || _dealer || '',
+            table:    document.getElementById('table_num')?.value    || _table  || '',
+            date:     document.getElementById('session_date')?.value || _date   || '',
+            spinType: document.getElementById('spin_type')?.value    || _spinType || '',
+        };
+    }
+
+    function setSessionFields(fields) {
+        if (!fields) return;
+        const f = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
+        f('casino_name', fields.casino);
+        f('dealer_name', fields.dealer);
+        f('table_num',   fields.table);
+        f('session_date',fields.date);
+        f('spin_type',   fields.spinType);
+        _casino   = fields.casino   || '';
+        _dealer   = fields.dealer   || '';
+        _table    = fields.table    || '';
+        _date     = fields.date     || '';
+        _spinType = fields.spinType || '';
+    }
+
+    function clearSessionFields() {
+        setSessionFields({ casino:'', dealer:'', table:'', date:'', spinType:'' });
+        currentSessionId = null;
+        localStorage.removeItem('goa_current_session_id');
+    }
+
+    // ─── New Session Modal ───────────────────────────────────────
+    function openNewSessionModal() {
+        document.getElementById('modal-spin-count').innerText = history.length;
+        document.getElementById('new-session-modal').style.display = 'flex';
+    }
+    function closeNewSessionModal() {
+        document.getElementById('new-session-modal').style.display = 'none';
+    }
+    async function newSessionSaveFirst() {
+        closeNewSessionModal();
+        await doUpload();
+        clearAndStartNew();
+    }
+    function newSessionNoSave() {
+        closeNewSessionModal();
+        clearAndStartNew();
+    }
+    function clearAndStartNew() {
+        history = [];
+        save();
+        clearSessionFields();
+        update();
+    }
+
+    // ─── Auto-load last session on startup ───────────────────────
+    function autoLoadLastSession() {
+        if (!window._db) { setTimeout(autoLoadLastSession, 500); return; }
+        if (currentSessionId) {
+            showLoading('Restoring your last session...');
+            window._db.collection('sessions').doc(currentSessionId).get()
+                .then(doc => {
+                    hideLoading();
+                    if (doc.exists) {
+                        const d = doc.data();
+                        history = d.numbers || [];
+                        window._appHistory = history;
+                        localStorage.setItem('goa_history', JSON.stringify(history));
+                        setSessionFields(d.sessionFields || {
+                            casino: d.casino, dealer: d.dealer,
+                            table: d.table, date: d.date, spinType: d.spinType
+                        });
+                        update();
+                    }
+                })
+                .catch(() => hideLoading());
+        } else if (history.length > 0) {
+            update();
+        } else {
+            showLoading('Checking for last session...');
+            window._db.collection('sessions').orderBy('timestamp','desc').limit(1).get()
+                .then(snap => { hideLoading(); })
+                .catch(() => hideLoading());
+        }
+    }
+
+    function showLoading(msg) {
+        document.getElementById('loading-text').innerText = msg || 'Loading...';
+        document.getElementById('loading-overlay').style.display = 'flex';
+    }
+    function hideLoading() {
+        document.getElementById('loading-overlay').style.display = 'none';
+    }
+
+    // ─── Save / Persist ──────────────────────────────────────────
+    function save() {
+        localStorage.setItem('goa_history', JSON.stringify(history));
+        window._appHistory = history;
+        if (currentSessionId && window._db) {
+            const fields = getSessionFields();
+            const payload = buildPayload(fields);
+            payload.isDraft = true;
+            window._db.collection('sessions').doc(currentSessionId).set(payload)
+                .catch(e => console.warn('Auto-save failed:', e.message));
+        }
+    }
+
+    function buildPayload(fields) {
+        const v = history.filter(x => x !== 0);
+        const occurrence = {};
+        history.forEach(n => { occurrence[String(n)] = (occurrence[String(n)] || 0) + 1; });
+
+        const rev = [...history].reverse();
+        const neighbourLog = rev.map((n, ri) => {
+            const origIdx = history.length - 1 - ri;
+            const prev = origIdx > 0 ? history[origIdx - 1] : null;
+            if (prev === null) return '∅';
+            if (n === prev) return 'R';
+            const dist = neighbourDist(prev, n);
+            return dist || '∅';
+        });
+        const zoneLog  = rev.map(n => getZone(n));
+        const votLog   = rev.map(n => v_n.includes(n)?'V':o_n.includes(n)?'O':t_n.includes(n)?'T':'?');
+        const rowLog   = rev.map(n => n===0?'Z':'R'+(n%3===0?3:n%3));
+        const dozLog   = rev.map(n => n===0?'Z':'D'+Math.ceil(n/12));
+        const rbLog    = rev.map(n => n===0?'Z':reds.includes(n)?'R':'B');
+        const oeLog    = rev.map(n => n===0?'Z':n%2!==0?'O':'E');
+        const secLog   = rev.map(n => getSector(n));
+
+        return {
+            ...fields,
+            sessionFields: fields,
+            timestamp: new Date().toISOString(),
+            device: navigator.userAgent,
+            numbers: history,
+            totalSpins: history.length,
+            stats: {
+                red:       history.filter(x => reds.includes(x)).length,
+                black:     v.filter(x => !reds.includes(x)).length,
+                odd:       v.filter(x => x%2!==0).length,
+                even:      v.filter(x => x%2===0).length,
+                high:      v.filter(x => x>=19).length,
+                low:       v.filter(x => x>=1&&x<=18).length,
+                zero:      history.filter(x => x===0).length,
+                dozen1:    v.filter(x => x<=12).length,
+                dozen2:    v.filter(x => x>=13&&x<=24).length,
+                dozen3:    v.filter(x => x>=25).length,
+                row1:      v.filter(x => x%3===1).length,
+                row2:      v.filter(x => x%3===2).length,
+                row3:      v.filter(x => x%3===0).length,
+                voisins:   history.filter(x => v_n.includes(x)).length,
+                orphelins: history.filter(x => o_n.includes(x)).length,
+                tiers:     history.filter(x => t_n.includes(x)).length,
+                zone1:     history.filter(x => zone1.includes(x)).length,
+                zone2:     history.filter(x => zone2.includes(x)).length,
+                sector1:   history.filter(x => getSector(x)==='S1').length,
+                sector2:   history.filter(x => getSector(x)==='S2').length,
+                sector3:   history.filter(x => getSector(x)==='S3').length,
+                sector4:   history.filter(x => getSector(x)==='S4').length,
+            },
+            occurrence,
+            patterns: { neighbourLog, zoneLog, votLog, rowLog, dozLog, rbLog, oeLog, secLog },
+        };
+    }
+
+    // ─── Upload ──────────────────────────────────────────────────
+    async function doUpload() {
+        if (!window._db) { alert("Firebase not available."); return; }
+        if (history.length === 0) { alert("No data to sync!"); return; }
+        showLoading('Syncing to cloud...');
+        try {
+            const fields = getSessionFields();
+            const payload = buildPayload(fields);
+            payload.isDraft = false;
+            if (currentSessionId) {
+                await window._db.collection('sessions').doc(currentSessionId).set(payload);
+            } else {
+                const ref = await window._db.collection('sessions').add(payload);
+                currentSessionId = ref.id;
+                localStorage.setItem('goa_current_session_id', currentSessionId);
+            }
+            hideLoading();
+            alert('✅ Synced! Casino:' + (fields.casino||'N/A') + ' Dealer:' + (fields.dealer||'N/A') + ' Spins:' + history.length);
+        } catch(e) {
+            hideLoading();
+            alert('❌ Sync failed: ' + e.message);
+        }
+    }
+
+    window.uploadData = doUpload;
+
+    // ─── Init ────────────────────────────────────────────────────
+    function init() {
+        const svg  = document.getElementById('wheel-svg');
+        const grid = document.getElementById('board-grid');
+        const table= document.getElementById('occ_table');
+
+        const cx=450, cy=200, rx=400, ry=160;
+        const total = wheelOrder.length;
+
+        const track = document.createElementNS('http://www.w3.org/2000/svg','ellipse');
+        track.setAttribute('cx',cx); track.setAttribute('cy',cy);
+        track.setAttribute('rx',rx+22); track.setAttribute('ry',ry+22);
+        track.setAttribute('fill','none'); track.setAttribute('stroke','#333'); track.setAttribute('stroke-width','1');
+        svg.appendChild(track);
+
+        const bandRx=rx*0.78, bandRy=ry*0.78, bandInnerRx=rx*0.55, bandInnerRy=ry*0.55;
+        const votColorFn = n => v_n.includes(n)?'#009688':o_n.includes(n)?'#c2185b':t_n.includes(n)?'#f57c00':'#555';
+        const votLabelFn = n => v_n.includes(n)?'V':o_n.includes(n)?'O':t_n.includes(n)?'T':'?';
+
+        let sections=[], currSec=null;
+        wheelOrder.forEach((n,i) => {
+            const v = votLabelFn(n);
+            const a = (i/total)*2*Math.PI;
+            if(!currSec||currSec.label!==v) { currSec={label:v,color:votColorFn(n),startAngle:a,endAngle:a}; sections.push(currSec); }
+            else { currSec.endAngle=a; }
+        });
+
+        sections.forEach(sec => {
+            const slotAngle=(2*Math.PI/total);
+            const sa=sec.startAngle-slotAngle*0.3, ea=sec.endAngle+slotAngle*0.3;
+            const x1o=cx+bandRx*Math.cos(sa),y1o=cy+bandRy*Math.sin(sa);
+            const x2o=cx+bandRx*Math.cos(ea),y2o=cy+bandRy*Math.sin(ea);
+            const x1i=cx+bandInnerRx*Math.cos(ea),y1i=cy+bandInnerRy*Math.sin(ea);
+            const x2i=cx+bandInnerRx*Math.cos(sa),y2i=cy+bandInnerRy*Math.sin(sa);
+            const large=(ea-sa)>Math.PI?1:0;
+            const band=document.createElementNS('http://www.w3.org/2000/svg','path');
+            band.setAttribute('d',`M ${x1o} ${y1o} A ${bandRx} ${bandRy} 0 ${large} 1 ${x2o} ${y2o} L ${x1i} ${y1i} A ${bandInnerRx} ${bandInnerRy} 0 ${large} 0 ${x2i} ${y2i} Z`);
+            band.setAttribute('fill',sec.color); band.setAttribute('opacity','0.18'); svg.appendChild(band);
+            const arc=document.createElementNS('http://www.w3.org/2000/svg','path');
+            arc.setAttribute('d',`M ${x1o} ${y1o} A ${bandRx} ${bandRy} 0 ${large} 1 ${x2o} ${y2o}`);
+            arc.setAttribute('fill','none'); arc.setAttribute('stroke',sec.color); arc.setAttribute('stroke-width','2.5'); arc.setAttribute('opacity','0.7'); svg.appendChild(arc);
+            const midA=(sec.startAngle+sec.endAngle)/2;
+            const lx=cx+((bandRx+bandInnerRx)/2)*Math.cos(midA), ly=cy+((bandRy+bandInnerRy)/2)*Math.sin(midA);
+            const lt=document.createElementNS('http://www.w3.org/2000/svg','text');
+            lt.setAttribute('x',lx); lt.setAttribute('y',ly+6); lt.setAttribute('text-anchor','middle');
+            lt.setAttribute('fill',sec.color); lt.setAttribute('font-size','22'); lt.setAttribute('font-weight','900');
+            lt.setAttribute('font-family','Segoe UI,sans-serif'); lt.setAttribute('opacity','0.9'); lt.textContent=sec.label; svg.appendChild(lt);
+        });
+
+        // ── Draw Zone arcs on wheel ──
+        // Zone1 = upper arc (left half), Zone2 = lower arc (right half)
+        const drawZoneArc = (zoneNums, color) => {
+            const indices = zoneNums.map(n => wheelOrder.indexOf(n)).filter(i => i >= 0).sort((a,b) => a-b);
+            if (indices.length === 0) return;
+            const outerRx = rx + 14, outerRy = ry + 14;
+            const firstI = indices[0], lastI = indices[indices.length-1];
+            const aStart = (firstI / total) * 2 * Math.PI - (Math.PI / total);
+            const aEnd   = (lastI  / total) * 2 * Math.PI + (Math.PI / total);
+            const large  = (aEnd - aStart) > Math.PI ? 1 : 0;
+            const x1 = cx + outerRx * Math.cos(aStart), y1 = cy + outerRy * Math.sin(aStart);
+            const x2 = cx + outerRx * Math.cos(aEnd),   y2 = cy + outerRy * Math.sin(aEnd);
+            const arc = document.createElementNS('http://www.w3.org/2000/svg','path');
+            arc.setAttribute('d', `M ${x1} ${y1} A ${outerRx} ${outerRy} 0 ${large} 1 ${x2} ${y2}`);
+            arc.setAttribute('fill','none'); arc.setAttribute('stroke', color);
+            arc.setAttribute('stroke-width','4'); arc.setAttribute('opacity','0.75');
+            arc.setAttribute('stroke-linecap','round'); svg.appendChild(arc);
+        };
+        drawZoneArc(zone1, '#42a5f5');
+        drawZoneArc(zone2, '#ba68c8');
+
+        const wheelGroup=document.createElementNS('http://www.w3.org/2000/svg','g');
+        wheelGroup.setAttribute('id','wheel-group'); svg.appendChild(wheelGroup);
+
+        wheelOrder.forEach((n,i) => {
+            const angle=(i/total)*2*Math.PI;
+            const bx=cx+rx*Math.cos(angle), by=cy+ry*Math.sin(angle);
+            const fillColor=n===0?'#00cc66':(reds.includes(n)?'#c0202e':'#1c1c1c');
+            const strokeColor=n===0?'#00ff88':(reds.includes(n)?'#ff6677':'#555');
+            const textColor=n===0?'#000':'#fff';
+            const g=document.createElementNS('http://www.w3.org/2000/svg','g');
+            g.setAttribute('id','w-'+n); g.style.cursor='pointer'; g.onclick=()=>selectNum(n);
+
+            // Outer zone ring (small colored dot)
+            const zoneColor = zone1.includes(n) ? '#42a5f5' : zone2.includes(n) ? '#ba68c8' : 'none';
+            if (zoneColor !== 'none') {
+                const zRing = document.createElementNS('http://www.w3.org/2000/svg','circle');
+                zRing.setAttribute('cx', bx); zRing.setAttribute('cy', by);
+                zRing.setAttribute('r', 25); zRing.setAttribute('fill','none');
+                zRing.setAttribute('stroke', zoneColor); zRing.setAttribute('stroke-width','2');
+                zRing.setAttribute('opacity','0.5'); g.appendChild(zRing);
+            }
+
+            const circ=document.createElementNS('http://www.w3.org/2000/svg','circle');
+            circ.setAttribute('cx',bx); circ.setAttribute('cy',by); circ.setAttribute('r',22);
+            circ.setAttribute('fill',fillColor); circ.setAttribute('stroke',strokeColor); circ.setAttribute('stroke-width','1.5'); g.appendChild(circ);
+            const tNum=document.createElementNS('http://www.w3.org/2000/svg','text');
+            tNum.setAttribute('x',bx); tNum.setAttribute('y',by+5); tNum.setAttribute('text-anchor','middle');
+            tNum.setAttribute('fill',textColor); tNum.setAttribute('font-size',n>=10?'16':'18');
+            tNum.setAttribute('font-weight','900'); tNum.setAttribute('font-family','Segoe UI, sans-serif'); tNum.textContent=n; g.appendChild(tNum);
+            wheelGroup.appendChild(g);
+        });
+
+        // Center info box
+        const fo=document.createElementNS('http://www.w3.org/2000/svg','foreignObject');
+        fo.setAttribute('x',450-90); fo.setAttribute('y',200-75); fo.setAttribute('width','180'); fo.setAttribute('height','150');
+        fo.innerHTML=`
+            <div xmlns="http://www.w3.org/1999/xhtml" style="display:flex;flex-direction:column;gap:5px;">
+                <input id="casino_name" placeholder="Casino Name" maxlength="16" oninput="_casino=this.value;save()"
+                    style="width:100%;background:rgba(0,0,0,0.7);border:1px solid #555;border-radius:4px;color:#d4af37;font-size:0.65rem;font-weight:700;padding:4px 6px;text-align:center;outline:none;font-family:Segoe UI,sans-serif;" />
+                <input id="dealer_name" placeholder="Dealer Name" maxlength="14" oninput="_dealer=this.value;save()"
+                    style="width:100%;background:rgba(0,0,0,0.7);border:1px solid #555;border-radius:4px;color:#d4af37;font-size:0.65rem;font-weight:700;padding:4px 6px;text-align:center;outline:none;font-family:Segoe UI,sans-serif;" />
+                <input id="table_num" placeholder="Table No." maxlength="6" type="text" oninput="_table=this.value;save()"
+                    style="width:100%;background:rgba(0,0,0,0.7);border:1px solid #555;border-radius:4px;color:#d4af37;font-size:0.65rem;font-weight:700;padding:4px 6px;text-align:center;outline:none;font-family:Segoe UI,sans-serif;" />
+                <input id="session_date" type="date" oninput="_date=this.value;save()"
+                    style="width:100%;background:rgba(0,0,0,0.7);border:1px solid #555;border-radius:4px;color:#d4af37;font-size:0.65rem;font-weight:700;padding:4px 6px;text-align:center;outline:none;font-family:Segoe UI,sans-serif;" />
+                <select id="spin_type" onchange="_spinType=this.value;save()"
+                    style="width:100%;background:rgba(0,0,0,0.7);border:1px solid #555;border-radius:4px;color:#d4af37;font-size:0.65rem;font-weight:700;padding:4px 6px;text-align:center;outline:none;font-family:Segoe UI,sans-serif;">
+                    <option value="" disabled selected>Spin Type</option>
+                    <option value="Clockwise">↻ Clockwise</option>
+                    <option value="Anti-Clockwise">↺ Anti-Clockwise</option>
+                </select>
+            </div>`;
+        svg.appendChild(fo);
+
+        // Board grid
+        for (let c=1;c<=12;c++) {
+            [3,2,1].forEach(r => {
+                const n=(c-1)*3+r;
+                const cell=document.createElement('div');
+                cell.innerText=n; cell.id='b-'+n;
+                cell.className=`cell ${reds.includes(n)?'bg-red':'bg-black'}`;
+                cell.onclick=()=>selectNum(n);
+                grid.appendChild(cell);
+            });
+        }
+
+        // Occurrence table
+        table.innerHTML=`<div class="table-row" style="position:sticky;top:0;z-index:10;background:#000">
+            <div class="row-n" style="color:#aaa;font-size:0.65rem">#</div>
+            <div class="row-c" style="color:#aaa;font-size:0.65rem">CNT</div>
+            <div class="row-h" style="color:#aaa;font-size:0.65rem">SPINS</div>
+        </div>`;
+        for (let i=0;i<=36;i++) {
+            table.innerHTML+=`<div class="table-row"><div class="row-n" style="color:${i===0?'#0f8':(reds.includes(i)?'#f44':'#fff')}">${i}</div><div class="row-c" id="c-${i}">0</div><div class="row-h" id="h-${i}">-</div></div>`;
+        }
+
+        update();
+        setTimeout(autoLoadLastSession, 1500);
+    }
+
+    function selectNum(n) {
+        track_n(n);
+        highlightSelected(n);
+    }
+
+    function highlightSelected(n) {
+        document.querySelectorAll('.cell, .zero').forEach(e => {
+            e.classList.remove('board-cell-selected');
+        });
+        if (n === undefined || n === null) return;
+        const bEl = (n === 0)
+            ? document.querySelector('.zero')
+            : document.getElementById('b-' + n);
+        if (bEl) bEl.classList.add('board-cell-selected');
+    }
+
+    function track_n(n) {
+        history.push(n);
+        save(); update();
+    }
+
+    function undo() {
+        if (history.length === 0) return;
+        history.pop();
+        save(); update();
+    }
+
+    function update() {
+        // ── 1. Reset all wheel circles ──
+        document.querySelectorAll('#wheel-group circle').forEach(c => {
+            c.setAttribute('stroke-width','1.5'); c.removeAttribute('opacity');
+            c.classList.remove('wheel-ring-selected');
+            c.classList.remove('wheel-ring-history');
+        });
+
+        // ── 2. All hit numbers get dim history ring ──
+        const hitSet = new Set(history);
+        hitSet.forEach(n => {
+            const wg = document.getElementById('w-' + n);
+            if (wg) {
+                // Only select the inner (2nd) circle (the main one, not the zone ring)
+                const circles = wg.querySelectorAll('circle');
+                const mainCirc = circles[circles.length - 1];
+                if (mainCirc) mainCirc.classList.add('wheel-ring-history');
+            }
+        });
+
+        // ── 3. Most-recent gets bright pulsing ring ──
+        if (history.length > 0) {
+            const last = history[history.length - 1];
+            const wg = document.getElementById('w-' + last);
+            if (wg) {
+                const circles = wg.querySelectorAll('circle');
+                const mainCirc = circles[circles.length - 1];
+                if (mainCirc) { mainCirc.classList.remove('wheel-ring-history'); mainCirc.classList.add('wheel-ring-selected'); }
+            }
+        }
+
+        // ── 4. Board highlight ──
+        document.querySelectorAll('.cell, .zero').forEach(e => {
+            e.style.outline='';
+            e.classList.remove('board-cell-selected');
+        });
+        if (history.length>0) {
+            const last=history[history.length-1];
+            const bEl=(last===0)?document.querySelector('.zero'):document.getElementById('b-'+last);
+            if(bEl){ bEl.style.outline='2px solid #ffd700'; bEl.classList.add('board-cell-selected'); }
+        }
+
+        // ── 5. Occurrence table ──
+        for (let i=0;i<=36;i++) { document.getElementById(`h-${i}`).innerText="-"; document.getElementById(`c-${i}`).innerText="0"; }
+        history.forEach((n,i) => {
+            const cell=document.getElementById(`h-${n}`);
+            cell.innerText=(cell.innerText==="-"?"":cell.innerText+", ")+(i+1);
+            const cnt=document.getElementById(`c-${n}`);
+            cnt.innerText=parseInt(cnt.innerText||0)+1;
+        });
+
+        // ── 6. Dashboard ──
+        document.getElementById('spin_v').innerText=history.length;
+        const v=history.filter(x=>x!==0);
+        document.getElementById('z12_v').innerText=`${history.filter(x=>zone1.includes(x)).length}/${history.filter(x=>zone2.includes(x)).length}`;
+        const upCnt = history.filter(x=>upNums.includes(x)).length;
+        const dnCnt = history.filter(x=>downNums.includes(x)).length;
+        document.getElementById('updown_v').innerText=`${upCnt}/${dnCnt}`;
+        const s1c=history.filter(x=>getSector(x)==='S1').length;
+        const s2c=history.filter(x=>getSector(x)==='S2').length;
+        const s3c=history.filter(x=>getSector(x)==='S3').length;
+        const s4c=history.filter(x=>getSector(x)==='S4').length;
+        document.getElementById('sec_v').innerText=`${s1c}/${s2c}/${s3c}/${s4c}`;
+        document.getElementById('vot_v').innerText=`${history.filter(x=>v_n.includes(x)).length}/${history.filter(x=>o_n.includes(x)).length}/${history.filter(x=>t_n.includes(x)).length}`;
+        document.getElementById('row_v').innerText=`${v.filter(x=>x%3===1).length}/${v.filter(x=>x%3===2).length}/${v.filter(x=>x%3===0).length}`;
+        document.getElementById('doz_v').innerText=`${v.filter(x=>x<=12).length}/${v.filter(x=>x>=13&&x<=24).length}/${v.filter(x=>x>=25).length}`;
+        document.getElementById('rb_v').innerText=`${v.filter(x=>reds.includes(x)).length}/${v.filter(x=>!reds.includes(x)).length}`;
+        document.getElementById('eo_v').innerText=`${v.filter(x=>x%2!==0).length}/${v.filter(x=>x%2===0).length}`;
+        document.getElementById('hl_v').innerText=`${v.filter(x=>x>=19).length}/${v.filter(x=>x>=1&&x<=18).length}`;
+
+        const rev=[...history].reverse();
+        const sorted=[...history].sort((a,b)=>a-b);
+        const getCol=n=>n===0?'#00ff88':(reds.includes(n)?'#e63946':'#1a1a1a');
+        const getTxt=n=>n===0?'#000':'#fff';
+
+        document.getElementById('hist_log').innerHTML=rev.map(n=>
+            `<div class="mini-ball" style="background:${getCol(n)};color:${getTxt(n)}">${n}</div>`).join('');
+        document.getElementById('sorted_list').innerHTML=sorted.map(n=>
+            `<div class="mini-ball" style="background:${getCol(n)};color:${getTxt(n)}">${n}</div>`).join('');
+
+        // ── Zone log ──
+        document.getElementById('zone_log').innerHTML=rev.map(n=>{
+            const z=getZone(n);
+            const bg=z==='ZL'?'#1565c0':z==='ZR'?'#6a1b9a':'#333';
+            const border=z==='ZL'?'1px solid #42a5f5':z==='ZR'?'1px solid #ba68c8':'1px solid #555';
+            return`<div class="tag" style="background:${bg};border:${border};font-size:0.75rem;font-weight:900;">${z}</div>`;
+        }).join('');
+
+        // ── Up/Down log ──
+        document.getElementById('updown_log').innerHTML = rev.map(n => {
+            const ud = getUpDown(n);
+            const bg = ud === 'UP' ? '#00695c' : ud === 'DN' ? '#b71c1c' : '#333';
+            const border = ud === 'UP' ? '1px solid #26a69a' : ud === 'DN' ? '1px solid #ef5350' : '1px solid #555';
+            const label = ud === 'UP' ? 'UP' : ud === 'DN' ? 'DN' : 'Z';
+            return `<div class="tag" style="background:${bg};border:${border};font-size:0.75rem;font-weight:900;">${label}</div>`;
+        }).join('');
+
+        // ── VOT log ──
+        document.getElementById('vot_log').innerHTML=rev.map(n=>{
+            let l="?",bg="#444";
+            if(v_n.includes(n)){l="V";bg="#009688";}else if(o_n.includes(n)){l="O";bg="#c2185b";}else if(t_n.includes(n)){l="T";bg="#f57c00";}
+            return`<div class="tag" style="background:${bg}">${l}</div>`;
+        }).join('');
+
+        // ── Neighbour log ──
+        document.getElementById('neighbour_log').innerHTML=rev.map((n,ri)=>{
+            const origIdx=history.length-1-ri;
+            const prev=origIdx>0?history[origIdx-1]:null;
+            let bg,label,textColor='#fff';
+            if(prev===null){bg='#2a2a2a';label='∅';textColor='#888';}
+            else if(n===prev){bg='#d4af37';label='R';textColor='#000';}
+            else{const dist=neighbourDist(prev,n);if(dist==='1N'){bg='#1b5e20';label='1N';}else if(dist==='2N'){bg='#1a237e';label='2N';}else if(dist==='3N'){bg='#4a148c';label='3N';}else{bg='#2a2a2a';label='∅';textColor='#888';}}
+            return`<div class="ntag" style="background:${bg};color:${textColor}"><span style="font-size:0.62rem;opacity:0.75">${n}</span><span>${label}</span></div>`;
+        }).join('');
+
+        // ── Row log ──
+        document.getElementById('row_log').innerHTML=rev.map(n=>{
+            if(n===0)return`<div class="tag" style="background:#00ff88;color:#000">Z</div>`;
+            const r=n%3===0?3:n%3;
+            const bg=r===1?'#2196f3':(r===2?'#9c27b0':'#ff9800');
+            return`<div class="tag" style="background:${bg}">R${r}</div>`;
+        }).join('');
+
+        // ── Dozen log ──
+        document.getElementById('doz_log').innerHTML=rev.map(n=>{
+            if(n===0)return`<div class="tag" style="background:#00ff88;color:#000">Z</div>`;
+            const d=Math.ceil(n/12);
+            const bg=d===1?'#00bcd4':(d===2?'#e91e63':'#8bc34a');
+            return`<div class="tag" style="background:${bg}">D${d}</div>`;
+        }).join('');
+
+        // ── Red/Black log ──
+        document.getElementById('rb_log').innerHTML=rev.map(n=>{
+            if(n===0)return`<div class="tag" style="background:#00ff88;color:#000">Z</div>`;
+            const isRed=reds.includes(n);
+            return`<div class="tag" style="background:${isRed?'#c0202e':'#222'};border:1px solid ${isRed?'#ff6677':'#666'}">${isRed?'R':'B'}</div>`;
+        }).join('');
+
+        // ── Odd/Even log ──
+        document.getElementById('oe_log').innerHTML=rev.map(n=>{
+            if(n===0)return`<div class="tag" style="background:#00ff88;color:#000">Z</div>`;
+            const isOdd=n%2!==0;
+            const bg=isOdd?'#7b1fa2':'#1565c0';
+            return`<div class="tag" style="background:${bg}">${isOdd?'O':'E'}</div>`;
+        }).join('');
+
+        // ── High/Low log ──
+        document.getElementById('hl_log').innerHTML=rev.map(n=>{
+            if(n===0)return`<div class="tag" style="background:#00ff88;color:#000">Z</div>`;
+            const isHigh=n>=19;
+            const bg=isHigh?'#e65100':'#01579b';
+            return`<div class="tag" style="background:${bg}">${isHigh?'H':'L'}</div>`;
+        }).join('');
+
+        // ── Sector log ──
+        const secColors={S1:'#e65100',S2:'#1a237e',S3:'#1b5e20',S4:'#880e4f'};
+        document.getElementById('sec_log').innerHTML=rev.map(n=>{
+            const sec=getSector(n);
+            const bg=secColors[sec]||'#333';
+            return`<div class="tag" style="background:${bg}">${sec}</div>`;
+        }).join('');
+    }
+
+    // ─── Print ───────────────────────────────────────────────────
+    function printSession() {
+        const fields = getSessionFields();
+        const now    = new Date().toLocaleString();
+        const rev    = [...history].reverse();
+        const sorted = [...history].sort((a,b) => a-b);
+        const v      = history.filter(x => x !== 0);
+
+        const getCol = n => n===0 ? '#2d9e5f' : (reds.includes(n) ? '#c0202e' : '#222');
+        const ballHtml = arr => arr.map(n =>
+            `<span style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;
+            border-radius:50%;background:${getCol(n)};color:#fff;font-size:10px;font-weight:900;margin:2px;">${n}</span>`
+        ).join('');
+
+        let occRows = '';
+        for (let i=0; i<=36; i++) {
+            const count = history.filter(x=>x===i).length;
+            if (!count) continue;
+            const spins = history.map((x,idx)=>x===i?idx+1:null).filter(Boolean).join(', ');
+            const bg = i===0?'#2d9e5f':(reds.includes(i)?'#c0202e':'#444');
+            occRows += `<tr>
+                <td style="padding:4px 6px;text-align:center;background:${bg};color:#fff;font-weight:900;">${i}</td>
+                <td style="padding:4px 6px;text-align:center;font-weight:800;color:#b91c1c;border:1px solid #ddd;">${count}</td>
+                <td style="padding:4px 6px;color:#444;font-size:10px;font-family:monospace;border:1px solid #ddd;">${spins}</td>
+            </tr>`;
+        }
+
+        const ptag = (label, bg, col='#fff', num='') =>
+            `<span style="display:inline-flex;flex-direction:column;align-items:center;justify-content:center;
+            min-width:34px;height:26px;border-radius:3px;background:${bg};color:${col};
+            font-size:8px;font-weight:900;margin:2px;padding:0 2px;line-height:1.1;">
+            ${num!==''?`<span style="font-size:6.5px;opacity:0.8;">${num}</span>`:''}
+            <span>${label}</span></span>`;
+
+        // Zone pattern
+        const zonePat = rev.map(n => {
+            const z = getZone(n);
+            return z==='ZL' ? ptag('ZL','#1565c0','#fff',n) : ptag('ZR','#6a1b9a','#fff',n);
+        }).join('');
+
+        // Neighbour
+        const nbrPat = rev.map((n,ri) => {
+            const oi = history.length-1-ri;
+            const prev = oi>0 ? history[oi-1] : null;
+            if (prev===null) return ptag('∅','#ccc','#666',n);
+            if (n===prev)    return ptag('R','#d4af37','#000',n);
+            const d = neighbourDist(prev,n);
+            if (d==='1N') return ptag('1N','#2e7d32','#fff',n);
+            if (d==='2N') return ptag('2N','#1565c0','#fff',n);
+            if (d==='3N') return ptag('3N','#6a1b9a','#fff',n);
+            return ptag('∅','#ccc','#666',n);
+        }).join('');
+
+        const votPat = rev.map(n => {
+            if (v_n.includes(n)) return ptag('V','#009688');
+            if (o_n.includes(n)) return ptag('O','#c2185b');
+            if (t_n.includes(n)) return ptag('T','#e65100');
+            return ptag('?','#999');
+        }).join('');
+
+        const rowPat = rev.map(n => {
+            if (n===0) return ptag('Z','#2e7d32');
+            const r = n%3===0?3:n%3;
+            return ptag('R'+r, r===1?'#1565c0':r===2?'#6a1b9a':'#e65100');
+        }).join('');
+
+        const dozPat = rev.map(n => {
+            if (n===0) return ptag('Z','#2e7d32');
+            const dz = Math.ceil(n/12);
+            return ptag('D'+dz, dz===1?'#0097a7':dz===2?'#ad1457':'#558b2f');
+        }).join('');
+
+        const rbPat = rev.map(n => {
+            if (n===0) return ptag('Z','#2e7d32');
+            return reds.includes(n) ? ptag('R','#c0202e') : ptag('B','#222');
+        }).join('');
+
+        const oePat = rev.map(n => {
+            if (n===0) return ptag('Z','#2e7d32');
+            return n%2!==0 ? ptag('O','#6a1b9a') : ptag('E','#1565c0');
+        }).join('');
+
+        const hlPat = rev.map(n => {
+            if (n===0) return ptag('Z','#2e7d32');
+            return n>=19 ? ptag('H','#e65100') : ptag('L','#01579b');
+        }).join('');
+
+        const secPat = rev.map(n => {
+            const sec = getSector(n);
+            const sc = {S1:'#bf360c',S2:'#1a237e',S3:'#1b5e20',S4:'#880e4f'};
+            return ptag(sec, sc[sec]||'#555');
+        }).join('');
+
+        const sec = (title, body) =>
+            `<div style="margin-bottom:16px;page-break-inside:avoid;">
+                <div style="font-weight:800;font-size:12px;color:#b8860b;padding:5px 0;
+                border-bottom:2px solid #d4af37;margin-bottom:6px;">${title}</div>
+                ${body}
+            </div>`;
+
+        const sbox = (lbl, val) =>
+            `<div style="background:#f5f5f5;border-radius:5px;padding:8px;text-align:center;border:1px solid #e0e0e0;">
+                <div style="font-size:9px;color:#888;font-weight:700;margin-bottom:3px;">${lbl}</div>
+                <div style="font-size:15px;font-weight:900;color:#111;">${val}</div>
+            </div>`;
+
+        const patWrap = content => `<div style="display:flex;flex-wrap:wrap;gap:2px;">${content}</div>`;
+
+        const html = `<!DOCTYPE html><html lang="en"><head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+        <title>Goa Roulette Report – ${fields.casino||''} ${fields.date||''}</title>
+        <style>
+            * { box-sizing:border-box; margin:0; padding:0; }
+            body { font-family:'Segoe UI',Arial,sans-serif; background:#fff; color:#111; padding:16px; }
+            table { border-collapse:collapse; width:100%; }
+            @media print {
+                .no-print { display:none !important; }
+                body { padding:6px; font-size:11px; }
+                * { -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; color-adjust:exact !important; }
+            }
+        </style></head><body>
+
+        <div class="no-print" style="background:#d4af37;color:#000;padding:10px 14px;border-radius:8px;
+        margin-bottom:14px;font-weight:800;text-align:center;font-size:13px;">
+            📱 iPhone: tap the <b>Share ↑</b> button → <b>"Print"</b> &nbsp;|&nbsp;
+            <button onclick="window.print()" style="background:#000;color:#fff;border:none;border-radius:6px;
+            padding:7px 14px;font-weight:800;cursor:pointer;font-size:12px;margin-left:6px;">🖨 Print Now</button>
+        </div>
+
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;
+        border-bottom:3px solid #d4af37;padding-bottom:10px;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
+            <div>
+                <div style="font-size:18px;font-weight:900;color:#b8860b;">🎰 GOA ROULETTE SESSION REPORT</div>
+                <div style="font-size:10px;color:#666;margin-top:3px;">Printed: ${now}</div>
+            </div>
+            <div style="font-size:11px;line-height:1.9;text-align:right;">
+                <div><b>Casino:</b> ${fields.casino||'N/A'}</div>
+                <div><b>Dealer:</b> ${fields.dealer||'N/A'}</div>
+                <div><b>Table:</b> ${fields.table||'N/A'}</div>
+                <div><b>Date:</b> ${fields.date||'N/A'}</div>
+                <div><b>Spin Type:</b> ${fields.spinType||'N/A'}</div>
+                <div><b>Total Spins:</b> <b style="color:#b8860b;">${history.length}</b></div>
+            </div>
+        </div>
+
+        ${sec('Summary Stats',
+            `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;">
+                ${sbox('ZL / ZR', `${history.filter(x=>zone1.includes(x)).length} / ${history.filter(x=>zone2.includes(x)).length}`)}
+                ${sbox('V / O / T', `${history.filter(x=>v_n.includes(x)).length}/${history.filter(x=>o_n.includes(x)).length}/${history.filter(x=>t_n.includes(x)).length}`)}
+                ${sbox('Row 1/2/3', `${v.filter(x=>x%3===1).length}/${v.filter(x=>x%3===2).length}/${v.filter(x=>x%3===0).length}`)}
+                ${sbox('Dozen 1/2/3', `${v.filter(x=>x<=12).length}/${v.filter(x=>x>=13&&x<=24).length}/${v.filter(x=>x>=25).length}`)}
+                ${sbox('Red / Black', `${history.filter(x=>reds.includes(x)).length} / ${v.filter(x=>!reds.includes(x)).length}`)}
+                ${sbox('Odd / Even', `${v.filter(x=>x%2!==0).length} / ${v.filter(x=>x%2===0).length}`)}
+                ${sbox('High / Low', `${v.filter(x=>x>=19).length} / ${v.filter(x=>x>=1&&x<=18).length}`)}
+                ${sbox('S1/S2/S3/S4', `${history.filter(x=>getSector(x)==='S1').length}/${history.filter(x=>getSector(x)==='S2').length}/${history.filter(x=>getSector(x)==='S3').length}/${history.filter(x=>getSector(x)==='S4').length}`)}
+            </div>`
+        )}
+
+        ${sec('Hit History (most recent first)', `<div style="line-height:2.1;">${ballHtml(rev)}</div>`)}
+        ${sec('Sorted', `<div style="line-height:2.1;">${ballHtml(sorted)}</div>`)}
+
+        ${sec('Occurrence Table',
+            `<table>
+                <thead><tr style="background:#f0f0f0;">
+                    <th style="padding:5px 8px;text-align:center;border:1px solid #ddd;width:44px;">#</th>
+                    <th style="padding:5px 8px;text-align:center;border:1px solid #ddd;width:50px;">COUNT</th>
+                    <th style="padding:5px 8px;text-align:left;border:1px solid #ddd;">SPIN NUMBERS</th>
+                </tr></thead>
+                <tbody>${occRows}</tbody>
+            </table>`
+        )}
+
+        ${sec('Zone Pattern (ZL = Left Half | ZR = Right Half)', patWrap(zonePat))}
+        ${sec('V / O / T Pattern', patWrap(votPat))}
+        ${sec('Neighbour Pattern (1N / 2N / 3N / ∅)', patWrap(nbrPat))}
+        ${sec('Row Pattern', patWrap(rowPat))}
+        ${sec('Dozen Pattern', patWrap(dozPat))}
+        ${sec('Red / Black Pattern', patWrap(rbPat))}
+        ${sec('Odd / Even Pattern', patWrap(oePat))}
+        ${sec('High / Low Pattern', patWrap(hlPat))}
+        ${sec('Sector Pattern (S1 / S2 / S3 / S4)', patWrap(secPat))}
+
+        </body></html>`;
+
+        const pw = window.open('', '_blank');
+        if (pw) {
+            pw.document.write(html);
+            pw.document.close();
+            setTimeout(() => { try { pw.focus(); pw.print(); } catch(e) { console.warn(e); } }, 800);
+        } else {
+            const pa = document.getElementById('print-area');
+            pa.innerHTML = html;
+            pa.style.display = 'block';
+            window.print();
+            pa.style.display = 'none';
+        }
+    }
+
+    // ─── Tabs ────────────────────────────────────────────────────
+    function switchTab(name) {
+        ['occ','sessions','analytics'].forEach(t=>{
+            document.getElementById('panel-'+t).style.display=t===name?'':'none';
+            document.getElementById('tab-'+t).classList.toggle('active-tab',t===name);
+        });
+        if(name==='sessions'||name==='analytics') populateDropdowns();
+    }
+
+    window._allSessions=[];
+
+    function populateDropdowns() {
+        if(!window._db){setTimeout(populateDropdowns,600);return;}
+        window._db.collection('sessions').get().then(snap=>{
+            window._allSessions=[];
+            snap.forEach(doc=>window._allSessions.push(doc.data()));
+            cascadeDropdowns('sess',null);
+            cascadeDropdowns('an',null);
+        }).catch(e=>console.warn('Dropdown load failed:',e.message));
+    }
+
+    function cascadeDropdowns(prefix,changedField) {
+        const sessions=window._allSessions;
+        const casinoSel=document.getElementById(prefix+'-casino');
+        const dealerSel=document.getElementById(prefix+'-dealer');
+        const tableSel =document.getElementById(prefix+'-table');
+        if(!casinoSel||!dealerSel||!tableSel)return;
+        const selCasino=casinoSel.value, selDealer=dealerSel.value, selTable=tableSel.value;
+        const casinos=new Set(); sessions.forEach(d=>{if(d.casino)casinos.add(d.casino);});
+        const casinoFiltered=sessions.filter(d=>!selCasino||d.casino===selCasino);
+        const dealers=new Set(); casinoFiltered.forEach(d=>{if(d.dealer)dealers.add(d.dealer);});
+        const casinoDealerFiltered=casinoFiltered.filter(d=>!selDealer||d.dealer===selDealer);
+        const tables=new Set(); casinoDealerFiltered.forEach(d=>{if(d.table)tables.add(d.table);});
+        const prevCasino=casinoSel.value;
+        casinoSel.innerHTML='<option value="">All Casinos</option>';
+        casinos.forEach(v=>casinoSel.innerHTML+=`<option value="${v}"${v===prevCasino?' selected':''}>${v}</option>`);
+        const prevDealer=dealerSel.value;
+        dealerSel.innerHTML='<option value="">All Dealers</option>';
+        dealers.forEach(v=>dealerSel.innerHTML+=`<option value="${v}"${v===prevDealer?' selected':''}>${v}</option>`);
+        if(prevDealer&&!dealers.has(prevDealer))dealerSel.value='';
+        const prevTable=tableSel.value;
+        tableSel.innerHTML='<option value="">All Tables</option>';
+        tables.forEach(v=>tableSel.innerHTML+=`<option value="${v}"${v===prevTable?' selected':''}>${v}</option>`);
+        if(prevTable&&!tables.has(prevTable))tableSel.value='';
+    }
+
+    function showDetail(d) {
+        document.getElementById('sessions-list').style.display='none';
+        document.getElementById('session-detail').style.display='';
+
+        const nums = d.numbers || [];
+        const s = d.stats || {};
+
+        const getCol = n => n===0?'#00cc66':(reds.includes(n)?'#c0202e':'#333');
+        const balls = arr => arr.map(n =>
+            `<span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;
+            border-radius:50%;background:${getCol(n)};color:#fff;font-size:10px;font-weight:900;margin:2px;">${n}</span>`
+        ).join('');
+
+        let occRows = '';
+        for(let i=0;i<=36;i++){
+            const count = nums.filter(x=>x===i).length;
+            if(count===0) continue;
+            const spinNums = nums.map((x,idx)=>x===i?idx+1:null).filter(Boolean).join(', ');
+            const bg = i===0?'#00cc66':(reds.includes(i)?'#c0202e':'#1c1c1c');
+            occRows += `<div style="display:grid;grid-template-columns:36px 32px 1fr;border-bottom:1px solid #222;">
+                <div style="background:${bg};padding:6px 4px;text-align:center;font-weight:900;color:${i===0?'#000':'#fff'};font-size:0.85rem;">${i}</div>
+                <div style="background:#1a1a1a;padding:6px 4px;text-align:center;font-weight:800;color:#00e5ff;font-size:0.8rem;border-left:1px solid #333;border-right:1px solid #333;">${count}</div>
+                <div style="padding:6px 8px;color:#d4af37;font-family:monospace;font-size:0.7rem;word-break:break-all;">${spinNums}</div>
+            </div>`;
+        }
+
+        const rev = [...nums].reverse();
+        const sorted = [...nums].sort((a,b)=>a-b);
+
+        const tagHtml = (label, bg, textColor='#fff', num=null) =>
+            `<div style="min-width:40px;height:32px;border-radius:4px;display:flex;flex-direction:column;align-items:center;
+            justify-content:center;background:${bg};color:${textColor};font-size:0.72rem;font-weight:bold;line-height:1.1;padding:0 4px;">
+            ${num!==null?`<span style="font-size:0.55rem;opacity:0.7">${num}</span>`:''}
+            <span>${label}</span></div>`;
+
+        const zoneTags = rev.map(n=>{
+            const z=getZone(n);
+            return z==='ZL'?tagHtml('ZL','#1565c0','#fff',n):tagHtml('ZR','#6a1b9a','#fff',n);
+        }).join('');
+
+        const votTags = rev.map(n=>{
+            if(v_n.includes(n)) return tagHtml('V','#009688');
+            if(o_n.includes(n)) return tagHtml('O','#c2185b');
+            if(t_n.includes(n)) return tagHtml('T','#f57c00');
+            return tagHtml('?','#444');
+        }).join('');
+
+        const neighbourTags = rev.map((n,ri)=>{
+            const origIdx=nums.length-1-ri;
+            const prev=origIdx>0?nums[origIdx-1]:null;
+            if(prev===null) return tagHtml('∅','#2a2a2a','#888',n);
+            if(n===prev) return tagHtml('R','#d4af37','#000',n);
+            const dist=neighbourDist(prev,n);
+            if(dist==='1N') return tagHtml('1N','#1b5e20','#fff',n);
+            if(dist==='2N') return tagHtml('2N','#1a237e','#fff',n);
+            if(dist==='3N') return tagHtml('3N','#4a148c','#fff',n);
+            return tagHtml('∅','#2a2a2a','#888',n);
+        }).join('');
+
+        const rowTags = rev.map(n=>{
+            if(n===0) return tagHtml('Z','#00ff88','#000');
+            const r=n%3===0?3:n%3;
+            return tagHtml('R'+r, r===1?'#2196f3':r===2?'#9c27b0':'#ff9800');
+        }).join('');
+
+        const dozTags = rev.map(n=>{
+            if(n===0) return tagHtml('Z','#00ff88','#000');
+            const dz=Math.ceil(n/12);
+            return tagHtml('D'+dz, dz===1?'#00bcd4':dz===2?'#e91e63':'#8bc34a');
+        }).join('');
+
+        const rbTags = rev.map(n=>{
+            if(n===0) return tagHtml('Z','#00ff88','#000');
+            return reds.includes(n) ? tagHtml('R','#c0202e') : tagHtml('B','#222','#fff');
+        }).join('');
+
+        const oeTags = rev.map(n=>{
+            if(n===0) return tagHtml('Z','#00ff88','#000');
+            return n%2!==0 ? tagHtml('O','#7b1fa2') : tagHtml('E','#1565c0');
+        }).join('');
+
+        const hlTags = rev.map(n=>{
+            if(n===0) return tagHtml('Z','#00ff88','#000');
+            return n>=19 ? tagHtml('H','#e65100') : tagHtml('L','#01579b');
+        }).join('');
+
+        const secColors={S1:'#e65100',S2:'#1a237e',S3:'#1b5e20',S4:'#880e4f'};
+        const secTags = rev.map(n=>{
+            const sec=getSector(n);
+            return tagHtml(sec, secColors[sec]||'#333');
+        }).join('');
+
+        const flexWrap = content => `<div style="display:flex;flex-wrap:wrap;gap:5px;">${content}</div>`;
+        const box = (header, content) => `<div class="list-box"><div class="box-header">${header}</div>${content}</div>`;
+
+        document.getElementById('session-detail-content').innerHTML =
+            `<div class="list-box" style="margin-bottom:8px;">
+                <div class="sess-title">${d.casino||'—'} — Table ${d.table||'—'}</div>
+                <div class="sess-meta">Dealer: ${d.dealer||'—'} | Date: ${d.date||'—'} | Spin: ${d.spinType||'—'}</div>
+                <div class="sess-meta" style="margin-top:4px;">Total Spins: <b style="color:#d4af37">${d.totalSpins||0}</b></div>
+            </div>` +
+
+            `<div class="stat-grid">
+                <div class="stat-box"><span class="stat-lbl">ZL / ZR</span><span class="stat-val">${s.zone1||0} / ${s.zone2||0}</span></div>
+                <div class="stat-box"><span class="stat-lbl">V / O / T</span><span class="stat-val">${s.voisins||0} / ${s.orphelins||0} / ${s.tiers||0}</span></div>
+                <div class="stat-box"><span class="stat-lbl">Rows</span><span class="stat-val">${s.row1||0}/${s.row2||0}/${s.row3||0}</span></div>
+                <div class="stat-box"><span class="stat-lbl">Dozens</span><span class="stat-val">${s.dozen1||0}/${s.dozen2||0}/${s.dozen3||0}</span></div>
+                <div class="stat-box"><span class="stat-lbl">Red / Black</span><span class="stat-val">${s.red||0} / ${s.black||0}</span></div>
+                <div class="stat-box"><span class="stat-lbl">Odd / Even</span><span class="stat-val">${s.odd||0} / ${s.even||0}</span></div>
+                <div class="stat-box"><span class="stat-lbl">High / Low</span><span class="stat-val">${s.high||0} / ${s.low||0}</span></div>
+                <div class="stat-box"><span class="stat-lbl">Sectors S1/S2/S3/S4</span><span class="stat-val">${s.sector1||0}/${s.sector2||0}/${s.sector3||0}/${s.sector4||0}</span></div>
+            </div>` +
+
+            box('Hit History (most recent first)', flexWrap(balls(rev))) +
+            box('Sorted', flexWrap(balls(sorted))) +
+
+            `<div class="list-box"><div class="box-header">Occurrence Table</div>
+                <div style="display:grid;grid-template-columns:36px 32px 1fr;border-bottom:1px solid #333;margin-bottom:4px;">
+                    <div style="padding:4px;text-align:center;color:#aaa;font-size:0.65rem;">#</div>
+                    <div style="padding:4px;text-align:center;color:#aaa;font-size:0.65rem;border-left:1px solid #333;border-right:1px solid #333;">CNT</div>
+                    <div style="padding:4px 8px;color:#aaa;font-size:0.65rem;">SPINS</div>
+                </div>${occRows}</div>` +
+
+            box('Zone Pattern (ZL = Left Half | ZR = Right Half)', flexWrap(zoneTags)) +
+            box('V/O/T Section Log', flexWrap(votTags)) +
+            box('Neighbour (1N / 2N / 3N / ∅)', flexWrap(neighbourTags)) +
+            box('Row Pattern', flexWrap(rowTags)) +
+            box('Dozen Pattern', flexWrap(dozTags)) +
+            box('Red / Black Pattern', flexWrap(rbTags)) +
+            box('Odd / Even Pattern', flexWrap(oeTags)) +
+            box('High / Low Pattern', flexWrap(hlTags)) +
+            box('Sector Pattern (S1 / S2 / S3 / S4)', flexWrap(secTags)) +
+
+            `<button onclick='restoreSession(${JSON.stringify(d).replace(/\\/g,'\\\\').replace(/'/g,"\\'")})'
+                class="btn" style="background:#1a6b2a;width:100%;margin-top:4px;">
+                ↩ Load This Session into Tracker
+            </button>`;
+    }
+
+    function restoreSession(d) {
+        if(!confirm('This will replace your current session data. Continue?')) return;
+        history = d.numbers || [];
+        window._appHistory = history;
+        localStorage.setItem('goa_history', JSON.stringify(history));
+        const sf = d.sessionFields || { casino:d.casino, dealer:d.dealer, table:d.table, date:d.date, spinType:d.spinType };
+        setSessionFields(sf);
+        update();
+        switchTab('occ');
+        closeDetail();
+    }
+
+    function closeDetail() {
+        document.getElementById('session-detail').style.display='none';
+        document.getElementById('sessions-list').style.display='';
+    }
+
+    function loadSessions() {
+        const list=document.getElementById('sessions-list');
+        const filterCasino=document.getElementById('sess-casino').value||'';
+        const filterDealer=document.getElementById('sess-dealer').value||'';
+        const filterTable =document.getElementById('sess-table').value ||'';
+        const filterFrom  =document.getElementById('sess-date-from').value||'';
+        const filterTo    =document.getElementById('sess-date-to').value  ||'';
+        list.style.display='';
+        document.getElementById('session-detail').style.display='none';
+        list.innerHTML='<div style="color:#888;text-align:center;padding:20px;">Loading...</div>';
+        let attempts=0;
+        function tryLoad(){
+            attempts++;
+            if(window._db){
+                window._db.collection('sessions').orderBy('timestamp','desc').limit(200).get().then(snap=>{
+                    if(snap.empty){list.innerHTML='<div style="color:#666;text-align:center;padding:20px;">No sessions found.</div>';return;}
+                    list.innerHTML=''; let count=0;
+                    snap.forEach(doc=>{
+                        const d=doc.data();
+                        const sessionDate=d.date||(d.timestamp||'').split('T')[0]||'';
+                        if(filterCasino&&d.casino!==filterCasino)return;
+                        if(filterDealer&&d.dealer!==filterDealer)return;
+                        if(filterTable &&d.table !==filterTable) return;
+                        if(filterFrom&&sessionDate<filterFrom)return;
+                        if(filterTo  &&sessionDate>filterTo)  return;
+                        count++;
+                        const div=document.createElement('div');
+                        div.className='sess-card';
+                        div.innerHTML=`<div class="sess-title">${d.casino||'—'} &nbsp;|&nbsp; Table: ${d.table||'—'}</div>
+                            <div class="sess-meta">👤 ${d.dealer||'—'} &nbsp;|&nbsp; 📅 ${sessionDate} &nbsp;|&nbsp; 🎰 ${d.totalSpins||0} spins</div>
+                            <div class="sess-meta" style="margin-top:4px;color:#42a5f5;">ZL:${(d.stats||{}).zone1||0} ZR:${(d.stats||{}).zone2||0} | V:${(d.stats||{}).voisins||0} O:${(d.stats||{}).orphelins||0} T:${(d.stats||{}).tiers||0} | R:${(d.stats||{}).red||0} B:${(d.stats||{}).black||0}</div>`;
+                        div.onclick=()=>showDetail(d);
+                        list.appendChild(div);
+                    });
+                    if(count===0)list.innerHTML='<div style="color:#f44;text-align:center;padding:20px;">No sessions match your filters.</div>';
+                }).catch(e=>{list.innerHTML=`<div style="color:#f44;text-align:center;padding:20px;">Error: ${e.message}</div>`;});
+            } else if(attempts<20){
+                list.innerHTML=`<div style="color:#888;text-align:center;padding:20px;">Waiting for Firebase... (${attempts})</div>`;
+                setTimeout(tryLoad,500);
+            } else {
+                list.innerHTML='<div style="color:#f44;text-align:center;padding:20px;">Firebase unavailable.</div>';
+            }
+        }
+        tryLoad();
+    }
+
+    function loadAnalytics() {
+        const cont=document.getElementById('analytics-content');
+        const filterCasino=document.getElementById('an-casino').value||'';
+        const filterDealer=document.getElementById('an-dealer').value||'';
+        const filterTable =document.getElementById('an-table').value ||'';
+        const filterFrom  =document.getElementById('an-date-from').value||'';
+        const filterTo    =document.getElementById('an-date-to').value  ||'';
+        cont.innerHTML='<div style="color:#888;text-align:center;padding:20px;">Connecting...</div>';
+        let attempts=0;
+        function tryLoad(){
+            attempts++;
+            if(window._db){
+                window._db.collection('sessions').orderBy('timestamp','desc').limit(200).get().then(snap=>{
+                    if(snap.empty){cont.innerHTML='<div style="color:#666;text-align:center;padding:20px;">No sessions found.</div>';return;}
+                    const filtered=[];
+                    snap.forEach(doc=>{
+                        const d=doc.data();
+                        if(filterCasino&&d.casino!==filterCasino)return;
+                        if(filterDealer&&d.dealer!==filterDealer)return;
+                        if(filterTable &&d.table !==filterTable) return;
+                        const sessionDate=d.date||(d.timestamp||'').split('T')[0];
+                        if(filterFrom&&sessionDate<filterFrom)return;
+                        if(filterTo  &&sessionDate>filterTo)  return;
+                        filtered.push(d);
+                    });
+                    if(filtered.length===0){cont.innerHTML='<div style="color:#f44;text-align:center;padding:20px;">No sessions match filters.</div>';return;}
+                    let totalSpins=0,red=0,black=0,odd=0,even=0,high=0,low=0,zero=0,V=0,O=0,T=0,d1=0,d2=0,d3=0,r1=0,r2=0,r3=0,s1=0,s2=0,s3=0,s4=0,z1=0,z2=0;
+                    const numCount={};
+                    filtered.forEach(d=>{
+                        const s=d.stats||{};
+                        totalSpins+=d.totalSpins||0; red+=s.red||0; black+=s.black||0;
+                        odd+=s.odd||0; even+=s.even||0; high+=s.high||0; low+=s.low||0;
+                        zero+=s.zero||0; V+=s.voisins||0; O+=s.orphelins||0; T+=s.tiers||0;
+                        d1+=s.dozen1||0; d2+=s.dozen2||0; d3+=s.dozen3||0;
+                        r1+=s.row1||0;  r2+=s.row2||0;  r3+=s.row3||0;
+                        s1+=s.sector1||0; s2+=s.sector2||0; s3+=s.sector3||0; s4+=s.sector4||0;
+                        z1+=s.zone1||0; z2+=s.zone2||0;
+                        (d.numbers||[]).forEach(n=>{numCount[n]=(numCount[n]||0)+1;});
+                    });
+                    const getCol=n=>Number(n)===0?'#00cc66':(reds.includes(Number(n))?'#c0202e':'#333');
+                    const sorted=Object.entries(numCount).sort((a,b)=>b[1]-a[1]);
+                    const hot=sorted.slice(0,6), cold=sorted.slice(-6).reverse();
+                    const bar=(lbl,val,tot,col)=>{const p=tot?Math.round(val/tot*100):0;return`<div class="an-bar-wrap"><div class="an-bar-label"><span>${lbl}</span><span style="color:${col}">${val} (${p}%)</span></div><div class="an-bar-track"><div class="an-bar-fill" style="width:${p}%;background:${col}"></div></div></div>`;};
+                    const balls=arr=>arr.map(e=>`<div><div class="hc-ball" style="background:${getCol(e[0])};color:#fff">${e[0]}</div><div style="text-align:center;font-size:0.6rem;color:#d4af37;margin-top:2px;">${e[1]}</div></div>`).join('');
+                    cont.innerHTML=
+                        `<div class="list-box"><div class="box-header">Overview</div>
+                        <div class="stat-grid">
+                            <div class="stat-box"><span class="stat-lbl">Sessions</span><span class="stat-val">${filtered.length}</span></div>
+                            <div class="stat-box"><span class="stat-lbl">Total Spins</span><span class="stat-val">${totalSpins}</span></div>
+                            <div class="stat-box"><span class="stat-lbl">Avg Spins</span><span class="stat-val">${filtered.length?Math.round(totalSpins/filtered.length):0}</span></div>
+                            <div class="stat-box"><span class="stat-lbl">Total Zero</span><span class="stat-val">${zero}</span></div>
+                        </div></div>
+                        <div class="list-box"><div class="box-header">ZL / ZR</div>${bar('Zone Left (ZL)',z1,totalSpins,'#42a5f5')}${bar('Zone Right (ZR)',z2,totalSpins,'#ba68c8')}</div>
+                        <div class="list-box"><div class="box-header">V / O / T</div>${bar('Voisins',V,totalSpins,'#009688')}${bar('Orphelins',O,totalSpins,'#c2185b')}${bar('Tiers',T,totalSpins,'#f57c00')}</div>
+                        <div class="list-box"><div class="box-header">Row</div>${bar('Row 1',r1,totalSpins,'#2196f3')}${bar('Row 2',r2,totalSpins,'#9c27b0')}${bar('Row 3',r3,totalSpins,'#ff9800')}</div>
+                        <div class="list-box"><div class="box-header">Dozens</div>${bar('Dozen 1',d1,totalSpins,'#00bcd4')}${bar('Dozen 2',d2,totalSpins,'#e91e63')}${bar('Dozen 3',d3,totalSpins,'#8bc34a')}</div>
+                        <div class="list-box"><div class="box-header">Red / Black / Zero</div>${bar('Red',red,totalSpins,'#e63946')}${bar('Black',black,totalSpins,'#888')}${bar('Zero',zero,totalSpins,'#00cc66')}</div>
+                        <div class="list-box"><div class="box-header">Odd / Even</div>${bar('Odd',odd,totalSpins,'#7b1fa2')}${bar('Even',even,totalSpins,'#1565c0')}</div>
+                        <div class="list-box"><div class="box-header">High / Low</div>${bar('High (19-36)',high,totalSpins,'#ff9800')}${bar('Low (1-18)',low,totalSpins,'#00bcd4')}</div>
+                        <div class="list-box"><div class="box-header">Sectors</div>${bar('S1',s1,totalSpins,'#e65100')}${bar('S2',s2,totalSpins,'#1a237e')}${bar('S3',s3,totalSpins,'#1b5e20')}${bar('S4',s4,totalSpins,'#880e4f')}</div>
+                        <div class="list-box"><div class="box-header">🔥 Hot Numbers</div><div class="hot-cold-grid">${balls(hot)}</div></div>
+                        <div class="list-box"><div class="box-header">❄️ Cold Numbers</div><div class="hot-cold-grid">${balls(cold)}</div></div>`;
+                }).catch(e=>{cont.innerHTML=`<div style="color:#f44;text-align:center;padding:20px;">Error: ${e.message}</div>`;});
+            } else if(attempts<20){
+                cont.innerHTML=`<div style="color:#888;text-align:center;padding:20px;">Waiting for Firebase... (${attempts})</div>`;
+                setTimeout(tryLoad,500);
+            } else {
+                cont.innerHTML='<div style="color:#f44;text-align:center;padding:20px;">Firebase unavailable.</div>';
+            }
+        }
+        tryLoad();
+    }
+
+    init();
+</script>
+
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script>
+    try {
+        firebase.initializeApp({
+            apiKey: "AIzaSyB0VuctY-SHcOrvJlxF67Gc8a7Fzf7mIjo",
+            authDomain: "my-big-win.firebaseapp.com",
+            projectId: "my-big-win",
+            storageBucket: "my-big-win.firebasestorage.app",
+            messagingSenderId: "188939187670",
+            appId: "1:188939187670:web:ff88d55b85909264cca077"
+        });
+        window._db = firebase.firestore();
+        console.log('Firebase ready');
+    } catch(e) { console.warn("Firebase:", e.message); }
+</script>
+</body>
+</html>
