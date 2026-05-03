@@ -13,9 +13,9 @@
         .right-panel { flex: 1; height: 100%; overflow-y: auto; background: #050505; padding: 10px; }
 
         .dashboard { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 10px; background: #111; position: sticky; top: 0; z-index: 200; }
-        .card { background: rgba(255,255,255,0.05); border: 1px solid #444; padding: 5px; border-radius: 4px; text-align: center; }
-        .lbl { font-size: 0.5rem; color: #aaa; display: block; }
-        .val { font-size: 0.8rem; font-weight: 800; color: #d4af37; }
+        .card { background: rgba(255,255,255,0.05); border: 1px solid #444; padding: 6px 4px; border-radius: 4px; text-align: center; }
+        .lbl { font-size: 0.55rem; color: #aaa; display: block; margin-bottom: 2px; }
+        .val { font-size: 1rem; font-weight: 800; color: #d4af37; line-height: 1.2; }
 
         .input-container { display: flex; flex-direction: column; align-items: center; gap: 20px; padding: 20px 0; overflow: visible; }
         .wheel-box { position: relative; width: 95%; max-width: 560px; display: flex; justify-content: center; overflow: visible; padding: 10px 0; pointer-events: none; }
@@ -150,15 +150,15 @@
         <!-- ── Dashboard ── -->
         <div class="dashboard">
             <div class="card"><span class="lbl">Total Spins</span><div class="val" id="spin_v">0</div></div>
-            <div class="card"><span class="lbl">ZL / ZR</span><div class="val" id="z12_v" style="color:#42a5f5">0/0</div></div>
-            <div class="card"><span class="lbl">UP / DN</span><div class="val" id="updown_v" style="color:#26a69a">0/0</div></div>
-            <div class="card"><span class="lbl">S1/S2/S3/S4</span><div class="val" id="sec_v" style="font-size:0.65rem;color:#ff9800">0/0/0/0</div></div>
-            <div class="card"><span class="lbl">ZV/V/O/T</span><div class="val" id="vot_v" style="font-size:0.65rem;">0/0/0/0</div></div>
-            <div class="card"><span class="lbl">Row1/Row2/Row3</span><div class="val" id="row_v">0/0/0</div></div>
-            <div class="card"><span class="lbl">Dozen1/Dozen2/Dozen3</span><div class="val" id="doz_v">0/0/0</div></div>
-            <div class="card"><span class="lbl">Red/Black</span><div class="val" id="rb_v">0/0</div></div>
-            <div class="card"><span class="lbl">Odd/Even</span><div class="val" id="eo_v">0/0</div></div>
-            <div class="card"><span class="lbl">High/Low</span><div class="val" id="hl_v">0/0</div></div>
+            <div class="card"><span class="lbl">ZL / ZR</span><div class="val" id="z12_v" style="color:#42a5f5">0 / 0</div></div>
+            <div class="card"><span class="lbl">UP / DN</span><div class="val" id="updown_v" style="color:#26a69a">0 / 0</div></div>
+            <div class="card"><span class="lbl">S1/S2/S3/S4</span><div class="val" id="sec_v" style="font-size:0.88rem;color:#ff9800">0/0/0/0</div></div>
+            <div class="card"><span class="lbl">ZV/V/O/T</span><div class="val" id="vot_v" style="font-size:0.88rem;">0/0/0/0</div></div>
+            <div class="card"><span class="lbl">Row1/Row2/Row3</span><div class="val" id="row_v" style="font-size:0.95rem;">0 / 0 / 0</div></div>
+            <div class="card"><span class="lbl">Dozen1/Dozen2/Dozen3</span><div class="val" id="doz_v" style="font-size:0.95rem;">0 / 0 / 0</div></div>
+            <div class="card"><span class="lbl">Red / Black</span><div class="val" id="rb_v" style="font-size:1.15rem;">0 / 0</div></div>
+            <div class="card"><span class="lbl">Odd / Even</span><div class="val" id="eo_v">0 / 0</div></div>
+            <div class="card"><span class="lbl">High / Low</span><div class="val" id="hl_v">0 / 0</div></div>
         </div>
 
         <!-- ── Wheel + Board ── -->
@@ -348,6 +348,23 @@
         return null;
     }
 
+    // ── Neighbour classification with priority R→AR→2AN→3AN→1N/2N/3N→∅ ──
+    function getNeighbourInfo(n, origIdx, histArr) {
+        const prev1 = origIdx > 0 ? histArr[origIdx - 1] : null;
+        const prev2 = origIdx > 1 ? histArr[origIdx - 2] : null;
+        const prev3 = origIdx > 2 ? histArr[origIdx - 3] : null;
+        if (prev1 === null) return { label: '∅', bg: '#2a2a2a', textColor: '#888' };
+        if (n === prev1)    return { label: 'R',   bg: '#d4af37', textColor: '#000' };
+        if (prev2 !== null && n === prev2) return { label: 'AR',  bg: '#e65100', textColor: '#fff' };
+        if (prev2 !== null && neighbourDist(prev2, n)) return { label: '2AN', bg: '#6a1b9a', textColor: '#fff' };
+        if (prev3 !== null && neighbourDist(prev3, n)) return { label: '3AN', bg: '#880e4f', textColor: '#fff' };
+        const d = neighbourDist(prev1, n);
+        if (d === '1N') return { label: '1N', bg: '#1b5e20', textColor: '#fff' };
+        if (d === '2N') return { label: '2N', bg: '#1a237e', textColor: '#fff' };
+        if (d === '3N') return { label: '3N', bg: '#4a0080', textColor: '#fff' };
+        return { label: '∅', bg: '#2a2a2a', textColor: '#888' };
+    }
+
     // App state
     let history = JSON.parse(localStorage.getItem('goa_history')) || [];
     let currentSessionId = localStorage.getItem('goa_current_session_id') || null;
@@ -470,11 +487,7 @@
         const rev = [...history].reverse();
         const neighbourLog = rev.map((n, ri) => {
             const origIdx = history.length - 1 - ri;
-            const prev = origIdx > 0 ? history[origIdx - 1] : null;
-            if (prev === null) return '∅';
-            if (n === prev) return 'R';
-            const dist = neighbourDist(prev, n);
-            return dist || '∅';
+            return getNeighbourInfo(n, origIdx, history).label;
         });
         const zoneLog  = rev.map(n => getZone(n));
         // ZV checked first in votLog
@@ -779,26 +792,25 @@
         // ── 6. Dashboard ──
         document.getElementById('spin_v').innerText=history.length;
         const v=history.filter(x=>x!==0);
-        document.getElementById('z12_v').innerText=`${history.filter(x=>zone1.includes(x)).length}/${history.filter(x=>zone2.includes(x)).length}`;
+        document.getElementById('z12_v').innerText=`${history.filter(x=>zone1.includes(x)).length} / ${history.filter(x=>zone2.includes(x)).length}`;
         const upCnt = history.filter(x=>upNums.includes(x)).length;
         const dnCnt = history.filter(x=>downNums.includes(x)).length;
-        document.getElementById('updown_v').innerText=`${upCnt}/${dnCnt}`;
+        document.getElementById('updown_v').innerText=`${upCnt} / ${dnCnt}`;
         const s1c=history.filter(x=>getSector(x)==='S1').length;
         const s2c=history.filter(x=>getSector(x)==='S2').length;
         const s3c=history.filter(x=>getSector(x)==='S3').length;
         const s4c=history.filter(x=>getSector(x)==='S4').length;
-        document.getElementById('sec_v').innerText=`${s1c}/${s2c}/${s3c}/${s4c}`;
-        // ZV counter: ZV numbers only; V counter excludes ZV
+        document.getElementById('sec_v').innerText=`${s1c} / ${s2c} / ${s3c} / ${s4c}`;
         const zvCnt = history.filter(x=>zv_n.includes(x)).length;
         const vCnt  = history.filter(x=>v_n.includes(x) && !zv_n.includes(x)).length;
         const oCnt  = history.filter(x=>o_n.includes(x)).length;
         const tCnt  = history.filter(x=>t_n.includes(x)).length;
-        document.getElementById('vot_v').innerHTML=`<span style="color:#42a5f5">${zvCnt}/${vCnt}</span><span style="color:#888">/</span><span style="color:#ff9800">${oCnt}/${tCnt}</span>`;
-        document.getElementById('row_v').innerText=`${v.filter(x=>x%3===1).length}/${v.filter(x=>x%3===2).length}/${v.filter(x=>x%3===0).length}`;
-        document.getElementById('doz_v').innerText=`${v.filter(x=>x<=12).length}/${v.filter(x=>x>=13&&x<=24).length}/${v.filter(x=>x>=25).length}`;
-        document.getElementById('rb_v').innerText=`${v.filter(x=>reds.includes(x)).length}/${v.filter(x=>!reds.includes(x)).length}`;
-        document.getElementById('eo_v').innerText=`${v.filter(x=>x%2!==0).length}/${v.filter(x=>x%2===0).length}`;
-        document.getElementById('hl_v').innerText=`${v.filter(x=>x>=19).length}/${v.filter(x=>x>=1&&x<=18).length}`;
+        document.getElementById('vot_v').innerHTML=`<span style="color:#42a5f5">${zvCnt} / ${vCnt}</span><span style="color:#888"> / </span><span style="color:#ff9800">${oCnt} / ${tCnt}</span>`;
+        document.getElementById('row_v').innerText=`${v.filter(x=>x%3===1).length} / ${v.filter(x=>x%3===2).length} / ${v.filter(x=>x%3===0).length}`;
+        document.getElementById('doz_v').innerText=`${v.filter(x=>x<=12).length} / ${v.filter(x=>x>=13&&x<=24).length} / ${v.filter(x=>x>=25).length}`;
+        document.getElementById('rb_v').innerText=`${v.filter(x=>reds.includes(x)).length} / ${v.filter(x=>!reds.includes(x)).length}`;
+        document.getElementById('eo_v').innerText=`${v.filter(x=>x%2!==0).length} / ${v.filter(x=>x%2===0).length}`;
+        document.getElementById('hl_v').innerText=`${v.filter(x=>x>=19).length} / ${v.filter(x=>x>=1&&x<=18).length}`;
 
         const rev=[...history].reverse();
         const sorted=[...history].sort((a,b)=>a-b);
@@ -840,11 +852,7 @@
         // ── Neighbour log ──
         document.getElementById('neighbour_log').innerHTML=rev.map((n,ri)=>{
             const origIdx=history.length-1-ri;
-            const prev=origIdx>0?history[origIdx-1]:null;
-            let bg,label,textColor='#fff';
-            if(prev===null){bg='#2a2a2a';label='∅';textColor='#888';}
-            else if(n===prev){bg='#d4af37';label='R';textColor='#000';}
-            else{const dist=neighbourDist(prev,n);if(dist==='1N'){bg='#1b5e20';label='1N';}else if(dist==='2N'){bg='#1a237e';label='2N';}else if(dist==='3N'){bg='#4a148c';label='3N';}else{bg='#2a2a2a';label='∅';textColor='#888';}}
+            const {label,bg,textColor}=getNeighbourInfo(n,origIdx,history);
             return`<div class="ntag" style="background:${bg};color:${textColor}"><span style="font-size:0.62rem;opacity:0.75">${n}</span><span>${label}</span></div>`;
         }).join('');
 
@@ -936,17 +944,10 @@
             return z==='ZL' ? ptag('ZL','#1565c0','#fff',n) : ptag('ZR','#6a1b9a','#fff',n);
         }).join('');
 
-        // Neighbour
         const nbrPat = rev.map((n,ri) => {
             const oi = history.length-1-ri;
-            const prev = oi>0 ? history[oi-1] : null;
-            if (prev===null) return ptag('∅','#ccc','#666',n);
-            if (n===prev)    return ptag('R','#d4af37','#000',n);
-            const d = neighbourDist(prev,n);
-            if (d==='1N') return ptag('1N','#2e7d32','#fff',n);
-            if (d==='2N') return ptag('2N','#1565c0','#fff',n);
-            if (d==='3N') return ptag('3N','#6a1b9a','#fff',n);
-            return ptag('∅','#ccc','#666',n);
+            const {label,bg,textColor} = getNeighbourInfo(n, oi, history);
+            return ptag(label, bg, textColor, n);
         }).join('');
 
         // VOT pattern — ZV green, V teal, O pink, T orange
@@ -1197,14 +1198,8 @@
 
         const neighbourTags = rev.map((n,ri)=>{
             const origIdx=nums.length-1-ri;
-            const prev=origIdx>0?nums[origIdx-1]:null;
-            if(prev===null) return tagHtml('∅','#2a2a2a','#888',n);
-            if(n===prev) return tagHtml('R','#d4af37','#000',n);
-            const dist=neighbourDist(prev,n);
-            if(dist==='1N') return tagHtml('1N','#1b5e20','#fff',n);
-            if(dist==='2N') return tagHtml('2N','#1a237e','#fff',n);
-            if(dist==='3N') return tagHtml('3N','#4a148c','#fff',n);
-            return tagHtml('∅','#2a2a2a','#888',n);
+            const {label,bg,textColor}=getNeighbourInfo(n,origIdx,nums);
+            return tagHtml(label,bg,textColor,n);
         }).join('');
 
         const rowTags = rev.map(n=>{
