@@ -817,8 +817,8 @@
         const getCol=n=>n===0?'#00ff88':(reds.includes(n)?'#e63946':'#1a1a1a');
         const getTxt=n=>n===0?'#000':'#fff';
 
-        document.getElementById('hist_log').innerHTML=rev.map(n=>
-            `<div class="mini-ball" style="background:${getCol(n)};color:${getTxt(n)}">${n}</div>`).join('');
+        document.getElementById('hist_log').innerHTML=rev.map((n,i)=>
+            `<div class="mini-ball" style="background:${i%2===0?'#d4af37':'#2e7d32'};color:#fff">${n}</div>`).join('');
         document.getElementById('sorted_list').innerHTML=sorted.map(n=>
             `<div class="mini-ball" style="background:${getCol(n)};color:${getTxt(n)}">${n}</div>`).join('');
 
